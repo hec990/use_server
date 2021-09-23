@@ -42,33 +42,39 @@ var server = http.createServer(function(request, response) {
             if (user === undefined) {
                 response.statusCode = 400;
                 response.setHeader("Content-Type", "text/html; charset=UTF-8")
-                    // 每一个公司都应该有一个自己的errorCode,如果没有就说明很挫
-                    // 这里的4001，表示400里的第一种错误
-                response.end(`{"errorCode": 4001}`)
             } else {
                 response.statusCode = 200;
-                response.setHeader("Set-Cookie", "logined=1")
-                response.end();
+                response.setHeader("Set-Cookie", `logined=${user.id}`)
             }
-            response.end();
         })
 
     } else if (path === "/home.html") {
         // 显示登录用户名，通过cookie做
         const cookie = request.headers["cookie"];
-        if (cookie === "logined=1") {
-            // 读取文件
-            const homeHtml = fs.readFileSync("./db/users.json").toString()
-                // 找到这个文件替换
-            homeHtml.replace("{{loginStatus}}}", "已登录");
-            response.write();
+        let userId
+        try {
+            sessionId = cookie
+                .split(";")
+                .filter(s => s.indexOf("session_id=") >= 0)[0]
+                .split("=")[1];
+        } catch (error) {}
+        if (userId) {
+            const userArray = JSON.parse(fs.readFileSync("./db/users.json"));
+            const user = userArray.find(user => user.id === userId);
+            const homeHtml = fs.readFileSync("./public/home.html").toString();
+            let string = ''
+            if (user) {
+                string = homeHtml.replace("{{loginStatus}}", "已登录")
+                    .replace('{{user.name}}', user.name)
+            }
+            response.write(string);
         } else {
-            // 读取文件
-            const homeHtml = fs.readFileSync("./db/users.json").toString()
-                // 找到这个文件替换
-            homeHtml.replace("{{loginStatus}}}", "未登录");
-            response.write();
+            const homeHtml = fs.readFileSync("./public/home.html").toString();
+            const string = homeHtml.replace("{{loginStatus}}", "未登录")
+                .replace('{{user.name}}', '')
+            response.write(string);
         }
+        response.end()
     } else if (path === "/register" && method === "POST") {
         response.setHeader("Content-Type", "text/html; charset=UTF-8")
             // 读数据库
@@ -93,7 +99,6 @@ var server = http.createServer(function(request, response) {
             userArray.push(newUser)
                 // 将请求写入数据库
             fs.writeFileSync('./db/users.json', JSON.stringify(userArray))
-            response.end();
         })
 
     } else {
@@ -120,10 +125,8 @@ var server = http.createServer(function(request, response) {
             response.statusCode = 404
         }
         response.write(content)
-        response.end()
     }
-
+    response.end()
 })
 
-server.listen(port)
-console.log('监听 ' + port + ' 成功\n请用在空中转体720度然后用电饭煲打开 http://localhost:' + port)
+server.listen(port) console.log('监听 ' + port + ' 成功\n请用在空中转体720度然后用电饭煲打开 http://localhost:' + port)
